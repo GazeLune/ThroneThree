@@ -84,7 +84,8 @@ internal class RowContent(
             val color = profile.latencyColor().takeIf { it != 0 } ?: secondary
             val result = SpannableStringBuilder()
             var description: String? = null
-            // Profile::DisplayTestResult: a failed or connect-only test shows its verdict alone
+
+            // 1. 测试中状态
             when {
                 phase == RowPhase.TESTING -> result.append(context.getString(R.string.connection_test_testing))
                 latency == ProxyEntity.LATENCY_CONNECT_ONLY || latency < 0 -> result.append(
@@ -98,9 +99,16 @@ internal class RowContent(
                 else -> {
                     val allItems = testResult(context, profile, TestShowItems.of(adapter.testItemsToShow), color, secondary)
                     val items = if (brief) {
-                        // 紧凑模式：优先提取速度（↓/↑），未测速度则显示延迟
                         val speedItem = allItems.find { it.text.contains("↓") || it.text.contains("↑") }
-                        listOfNotNull(speedItem ?: allItems.firstOrNull())
+                        when {
+                            // 最新发生测速：速度或延迟覆盖显示单项
+                            speedItem != null -> listOf(speedItem)
+                            latency > 0 -> listOfNotNull(allItems.firstOrNull())
+                            // 产生流量：显示累计流量
+                            profile.rx + profile.tx > 0L -> listOf(Item("↑$up\u2002↓$down", secondary, context.getString(R.string.profile_row_traffic, up, down)))
+                            // 数据全被清理：置空，不回退
+                            else -> emptyList()
+                        }
                     } else {
                         allItems
                     }
@@ -132,10 +140,6 @@ internal class RowContent(
             )
         }
 
-        /**
-         * The items of Profile::DisplayTestResult (Profile.cpp:36-56): flag and latency in the latency colour, then
-         * the speeds and the egress IP as the group's test_items_to_show allows.
-         */
         private fun testResult(
             context: Context,
             profile: ProxyEntity,
@@ -165,7 +169,6 @@ internal class RowContent(
             return items
         }
 
-        /** "↓34.1 ↑11.6 Mbps": three significant digits, one unit when both rates share it; "N/A" is left out. */
         private fun speeds(context: Context, dl: String?, ul: String?, @ColorInt color: Int): Item? {
             fun parse(text: String?): Pair<String, String>? {
                 if (text.isNullOrEmpty() || text == ProxyEntity.SPEED_NA) return null
@@ -232,13 +235,6 @@ private object TypeLabel : OnPreferenceDataStoreChangeListener {
     }
 }
 
-private enum class LastChangeType {
-    NONE,
-    TEST,       // 最新是测速数据
-    TRAFFIC,    // 最新是跑流量
-    CLEARED     // 数据被清空（直接置空）
-}
-
 internal class ProfileRowHolder(view: View, private val adapter: ProfileListAdapter) :
     RecyclerView.ViewHolder(view) {
 
@@ -273,14 +269,6 @@ internal class ProfileRowHolder(view: View, private val adapter: ProfileListAdap
         private set
     var boundRx = Long.MIN_VALUE
         private set
-
-    // 记录上一轮状态，追踪最后更新事件
-    private var lastProfileId = -1L
-    private var prevTx = 0L
-    private var prevRx = 0L
-    private var prevLatency = 0L
-    private var prevSpeed: String? = null
-    private var lastChange = LastChangeType.NONE
 
     init {
         view.setOnClickListener {
@@ -322,81 +310,13 @@ internal class ProfileRowHolder(view: View, private val adapter: ProfileListAdap
 
     /** The address, result, traffic and error texts. */
     fun bindContent() {
-        val id = profile.id
-        val hasCurrentTraffic = profile.tx > 0L || profile.rx > 0L
-        val hasCurrentTest = profile.latency > 0 || !profile.dlSpeed.isNullOrEmpty()
-
-        if (lastProfileId != id) {
-            lastProfileId = id
-            prevTx = profile.tx
-            prevRx = profile.rx
-            prevLatency = profile.latency
-            prevSpeed = profile.dlSpeed
-            lastChange = when {
-                hasCurrentTraffic -> LastChangeType.TRAFFIC
-                hasCurrentTest -> LastChangeType.TEST
-                else -> LastChangeType.NONE
-            }
-        } else {
-            val hadTraffic = prevTx > 0L || prevRx > 0L
-            val hadTest = prevLatency > 0 || !prevSpeed.isNullOrEmpty()
-
-            // 无论流量还是测试数值，只要是从有变无（被清理），均直接设为 CLEARED
-            if ((hadTraffic && !hasCurrentTraffic) || (hadTest && !hasCurrentTest)) {
-                lastChange = LastChangeType.CLEARED
-            } else if (profile.tx != prevTx || profile.rx != prevRx) {
-                // 流量更新
-                lastChange = LastChangeType.TRAFFIC
-            } else if (profile.latency != prevLatency || profile.dlSpeed != prevSpeed) {
-                // 测速更新
-                lastChange = LastChangeType.TEST
-            }
-
-            prevTx = profile.tx
-            prevRx = profile.rx
-            prevLatency = profile.latency
-            prevSpeed = profile.dlSpeed
-        }
-
         val content = RowContent.of(itemView.context, profile, adapter)
-
-        if (adapter.isCompactRow) {
-            val phase = adapter.phaseOf(profile.id)
-            if (phase == RowPhase.TESTING) {
-                result.text = itemView.context.getString(R.string.connection_test_testing)
-                result.isVisible = true
-            } else {
-                when (lastChange) {
-                    LastChangeType.CLEARED, LastChangeType.NONE -> {
-                        // 任何数值清空后，坚决显示空，不回退
-                        result.text = null
-                        result.isVisible = false
-                    }
-                    LastChangeType.TRAFFIC -> {
-                        if (hasCurrentTraffic) {
-                            val up = Formatter.formatShortFileSize(itemView.context, profile.tx)
-                            val down = Formatter.formatShortFileSize(itemView.context, profile.rx)
-                            result.text = "↑$up\u2002↓$down"
-                            result.isVisible = true
-                        } else {
-                            result.text = null
-                            result.isVisible = false
-                        }
-                    }
-                    LastChangeType.TEST -> {
-                        val testText = content.result
-                        result.text = testText
-                        result.isVisible = testText.isNotEmpty()
-                    }
-                }
-            }
-        } else {
-            result.text = content.result
-            result.isVisible = content.result.isNotEmpty()
-        }
-
         address.text = content.address
         address.isVisible = content.address.isNotEmpty()
+        result.text = content.result
+        result.contentDescription = content.resultDescription
+        result.alpha = if (content.resultDimmed) 0.5f else 1f
+        result.isVisible = content.result.isNotEmpty()
         testProgress.isVisible = content.testing
         traffic.text = content.traffic
         traffic.contentDescription = content.trafficDescription
@@ -434,8 +354,6 @@ internal class ProfileRowHolder(view: View, private val adapter: ProfileListAdap
         boundRows = null
         boundTx = Long.MIN_VALUE
         boundRx = Long.MIN_VALUE
-        lastProfileId = -1L
-        lastChange = LastChangeType.NONE
     }
 
     /** A row missing here but shown by a card of the same grid row keeps its height (INVISIBLE). */
