@@ -4,12 +4,16 @@
     android:layout_width="match_parent"
     android:layout_height="wrap_content"
     android:orientation="vertical"
-    android:padding="16dp">
+    android:paddingStart="16dp"
+    android:paddingEnd="16dp"
+    android:paddingTop="6dp"
+    android:paddingBottom="6dp">
 
     <!-- The speeds left of the FAB, the exit right of it; equal halves keep the gap under the centred FAB. -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
+        android:gravity="center_vertical"
         android:orientation="horizontal">
 
         <!-- 左侧：上下行实时网速 -->
@@ -70,8 +74,9 @@
                 android:id="@+id/status"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:ellipsize="end"
+                android:layout_gravity="end"
                 android:gravity="end"
+                android:ellipsize="end"
                 android:maxLines="1"
                 android:textColor="?whiteOrTextPrimary"
                 android:textSize="12sp"
