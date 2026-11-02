@@ -41,9 +41,11 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 
 class StatsBar @JvmOverloads constructor(
-    context: Context, attrs: AttributeSet? = null,
+    context: Context,
+    attrs: AttributeSet? = null,
     defStyleAttr: Int = R.attr.bottomAppBarStyle,
 ) : BottomAppBar(context, attrs, defStyleAttr) {
+
     companion object {
         private const val INITIAL_HIDE_DELAY_MS = 100L
         private const val SCROLL_TOGGLE_THRESHOLD_DP = 8f
@@ -63,12 +65,12 @@ class StatsBar @JvmOverloads constructor(
     private var statusLine: CharSequence = ""
     private var stateReported = false
     private val exitListener = { showExit() }
+
     @Suppress("unused")
     private lateinit var behavior: YourBehavior
     private var currentState = BaseService.State.Idle
     private var pendingTransition: Transition? = Transition.HideImmediate
     private var transitionJob: Job? = null
-
     private var scrollHidden = false
     private var scrollDirection = 0 // 1 = hide (dy>0), -1 = show (dy<0), 0 = none
     private var scrollAccumulatedDy = 0
@@ -110,7 +112,6 @@ class StatsBar @JvmOverloads constructor(
     }
 
     inner class YourBehavior : Behavior() {
-
         override fun onStartNestedScroll(
             coordinatorLayout: CoordinatorLayout,
             child: BottomAppBar,
@@ -148,6 +149,7 @@ class StatsBar @JvmOverloads constructor(
         super.onLayout(changed, left, top, right, bottom)
         // BottomAppBar places the cradle here, not always through an invalidation of the shape.
         foreground?.invalidateSelf()
+
         val transition = pendingTransition
         if (transition != null) {
             pendingTransition = null
@@ -220,8 +222,7 @@ class StatsBar @JvmOverloads constructor(
 
     // On TV the bar stays put: it holds the URL test and must stay reachable by D-pad.
     private fun updateHideOnScroll() {
-        hideOnScroll = !SagerNet.isTv &&
-            !useExternalScrollDriver && allowShow && currentState == BaseService.State.Connected
+        hideOnScroll = !SagerNet.isTv && !useExternalScrollDriver && allowShow && currentState == BaseService.State.Connected
         isFocusable = shouldShow()
     }
 
@@ -241,7 +242,6 @@ class StatsBar @JvmOverloads constructor(
 
     fun onListScrolled(dy: Int) {
         if (SagerNet.isTv || !useExternalScrollDriver || !shouldShow() || dy == 0) return
-
         val direction = if (dy > 0) 1 else -1
         if (direction != scrollDirection) {
             scrollDirection = direction
@@ -257,7 +257,6 @@ class StatsBar @JvmOverloads constructor(
             return
         }
         if (abs(scrollAccumulatedDy) < scrollToggleThresholdPx) return
-
         scrollHidden = wantHidden
         scrollAccumulatedDy = 0
         isFocusable = !wantHidden
@@ -282,6 +281,7 @@ class StatsBar @JvmOverloads constructor(
             showWhenConnected -> applyTransition(
                 if (animate) Transition.ShowAnimated else Transition.ShowImmediate
             )
+
             alpha == 0f && isLaidOut -> alpha = 1f
         }
     }
@@ -369,17 +369,18 @@ class StatsBar @JvmOverloads constructor(
     }
 
     fun changeState(state: BaseService.State) {
+        val previousState = currentState
         currentState = state
         updateHideOnScroll()
         when {
             state == BaseService.State.Connected -> ExitIp.ensure()
-            // MainActivity.onCreate reports Idle before its service connection does: a rotation keeps the lookup.
             state != BaseService.State.Idle || stateReported -> ExitIp.clear()
         }
         stateReported = true
         showExit()
         if (state == BaseService.State.Connected) {
-            setStatus(app.getText(R.string.vpn_connected))
+            // 连接成功后，直接触发测速，不再显示“点击此处测试连接”
+            testConnection()
         } else {
             updateSpeed(0, 0)
             setStatus(
@@ -398,12 +399,14 @@ class StatsBar @JvmOverloads constructor(
     fun updateSpeed(txRate: Long, rxRate: Long) {
         txText.text = "▲  ${
             context.getString(
-                R.string.speed, Formatter.formatFileSize(context, txRate)
+                R.string.speed,
+                Formatter.formatFileSize(context, txRate)
             )
         }"
         rxText.text = "▼  ${
             context.getString(
-                R.string.speed, Formatter.formatFileSize(context, rxRate)
+                R.string.speed,
+                Formatter.formatFileSize(context, rxRate)
             )
         }"
     }
@@ -411,45 +414,43 @@ class StatsBar @JvmOverloads constructor(
     fun testConnection() {
         val activity = context as MainActivity
         isEnabled = false
-        setStatus(app.getText(R.string.connection_test_testing))
+        setStatus("正在测试...")
         runOnDefaultDispatcher {
+            // 给底层代理隧道留出500ms建立首包链路
+            delay(500)
             try {
                 val elapsed = activity.urlTest()
                 onMainDispatcher {
                     isEnabled = true
                     setStatus(
                         if (elapsed == ProxyEntity.LATENCY_CONNECT_ONLY) {
-                            app.getText(R.string.test_connect_ok)
+                            "连接成功"
+                        } else if (elapsed > 0) {
+                            "${elapsed} ms"
                         } else {
-                            app.getString(
-                                if (DataStore.testUrl.startsWith("https://")) {
-                                    R.string.connection_test_available
-                                } else {
-                                    R.string.connection_test_available_http
-                                }, elapsed
-                            )
+                            "测试失败"
                         }
                     )
                 }
-
             } catch (e: Exception) {
                 Logs.w(e.toString())
                 onMainDispatcher {
                     isEnabled = true
-                    setStatus(app.getText(R.string.connection_test_testing))
-
+                    setStatus("测试失败")
                     activity.snackbar(
                         app.getString(
-                            R.string.connection_test_error, e.readableMessage
+                            R.string.connection_test_error,
+                            e.readableMessage
                         )
                     ).show()
                 }
             }
             // After the test, not beside it: one request at a time through the running connection.
-            onMainDispatcher { ExitIp.refresh() }
+            onMainDispatcher {
+                ExitIp.refresh()
+            }
         }
     }
-
 }
 
 /** The bar background's live outline (cradle included) for the same bounds. */
@@ -476,7 +477,6 @@ private class ShapeMaskDrawable(shape: MaterialShapeDrawable) : Drawable() {
     }
 
     override fun setAlpha(alpha: Int) {}
-
     override fun setColorFilter(colorFilter: ColorFilter?) {}
 
     @Deprecated("Deprecated in Java")
@@ -484,7 +484,11 @@ private class ShapeMaskDrawable(shape: MaterialShapeDrawable) : Drawable() {
 }
 
 /** The focus stroke of stats_focus, inside the outline; the ripple draws the focused fill. */
-private class ShapeFocusDrawable(shape: MaterialShapeDrawable, strokeColor: Int, strokeWidthPx: Float) : Drawable() {
+private class ShapeFocusDrawable(
+    shape: MaterialShapeDrawable,
+    strokeColor: Int,
+    strokeWidthPx: Float,
+) : Drawable() {
     private val outline = BarOutline(shape)
     private val paint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
         style = Paint.Style.STROKE
