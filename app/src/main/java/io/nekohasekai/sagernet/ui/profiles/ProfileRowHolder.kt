@@ -72,9 +72,11 @@ internal class RowContent(
         fun of(context: Context, profile: ProxyEntity, adapter: ProfileListAdapter): RowContent {
             val secondary = context.getColorAttr(android.R.attr.textColorSecondary)
             val brief = adapter.isCompactRow
-            val showTraffic = !brief && profile.rx + profile.tx != 0L
+            val hasTraffic = profile.rx + profile.tx != 0L
+            val showTraffic = !brief && hasTraffic
             val up = Formatter.formatShortFileSize(context, profile.tx)
             val down = Formatter.formatShortFileSize(context, profile.rx)
+            val trafficSummary = if (hasTraffic) "↑$up$NBSP↓$down" else ""
             val address = if (!brief && adapter.host?.alwaysShowAddress == true && profile.outbound.name.isNotBlank()) {
                 profile.displayAddress()
             } else ""
@@ -110,6 +112,16 @@ internal class RowContent(
                     }
                 }
             }
+
+            // 紧凑行模式且存在流量时，将流量拼接至右侧 result 前端；无流量/已清空时自动还原
+            if (brief && hasTraffic) {
+                if (result.isNotEmpty()) {
+                    result.insert(0, "$trafficSummary$GAP")
+                } else {
+                    result.append(trafficSummary)
+                }
+            }
+
             val error = if (phase == null) profile.testError?.takeIf { it.isNotBlank() } else null
             return RowContent(
                 result = result,
