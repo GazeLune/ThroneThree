@@ -12,6 +12,7 @@
         android:layout_height="wrap_content"
         android:orientation="horizontal">
 
+        <!-- 左侧：上下行实时网速 -->
         <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
@@ -38,34 +39,46 @@
 
         </LinearLayout>
 
+        <!-- 中间为悬浮 FAB 留出的空隙 -->
         <Space
             android:layout_width="72dp"
             android:layout_height="0dp" />
 
-        <TextView
-            android:id="@+id/exit_country"
+        <!-- 右侧：出站节点在上，“已连接/测试结果”在下 -->
+        <LinearLayout
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:ellipsize="end"
             android:gravity="end"
-            android:singleLine="true"
-            android:textColor="?whiteOrTextPrimary"
-            android:textSize="14sp"
-            android:visibility="gone"
-            tools:text="Germany"
-            tools:visibility="visible" />
+            android:orientation="vertical">
+
+            <TextView
+                android:id="@+id/exit_country"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:gravity="end"
+                android:singleLine="true"
+                android:textColor="?whiteOrTextPrimary"
+                android:textSize="14sp"
+                android:visibility="gone"
+                tools:text="Germany"
+                tools:visibility="visible" />
+
+            <!-- 原本最底下的 status 移到了这里 -->
+            <TextView
+                android:id="@+id/status"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:ellipsize="end"
+                android:gravity="end"
+                android:maxLines="1"
+                android:textColor="?whiteOrTextPrimary"
+                android:textSize="12sp"
+                tools:text="@string/connection_test_available" />
+
+        </LinearLayout>
 
     </LinearLayout>
-
-    <TextView
-        android:id="@+id/status"
-        android:layout_width="wrap_content"
-        android:layout_height="wrap_content"
-        android:ellipsize="end"
-        android:maxLines="1"
-        android:textColor="?whiteOrTextPrimary"
-        android:textSize="16sp"
-        tools:text="@string/connection_test_available" />
 
 </LinearLayout>
