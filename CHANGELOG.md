@@ -1,3 +1,7 @@
+#### 2.0.4.6
+
+* 紧凑模式右侧只显示单项测试数据，修改.5的显示逻辑（修改 `app/src/main/java/io/nekohasekai/sagernet/ui/profiles/ProfileRowHolder.kt`）
+
 #### 2.0.4.5
 
 * 紧凑模式右侧只显示单项测试数据，新测速数据直接覆盖旧数据（修改 `app/src/main/java/io/nekohasekai/sagernet/ui/profiles/ProfileRowHolder.kt`）
