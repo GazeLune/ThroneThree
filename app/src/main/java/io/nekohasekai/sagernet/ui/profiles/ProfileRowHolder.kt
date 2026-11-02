@@ -72,11 +72,9 @@ internal class RowContent(
         fun of(context: Context, profile: ProxyEntity, adapter: ProfileListAdapter): RowContent {
             val secondary = context.getColorAttr(android.R.attr.textColorSecondary)
             val brief = adapter.isCompactRow
-            val hasTraffic = profile.rx + profile.tx != 0L
-            val showTraffic = !brief && hasTraffic
+            val showTraffic = !brief && profile.rx + profile.tx != 0L
             val up = Formatter.formatShortFileSize(context, profile.tx)
             val down = Formatter.formatShortFileSize(context, profile.rx)
-            val trafficSummary = if (hasTraffic) "↑$up$NBSP↓$down" else ""
             val address = if (!brief && adapter.host?.alwaysShowAddress == true && profile.outbound.name.isNotBlank()) {
                 profile.displayAddress()
             } else ""
@@ -98,8 +96,15 @@ internal class RowContent(
                 )
 
                 else -> {
-                    val items = testResult(context, profile, TestShowItems.of(adapter.testItemsToShow), color, secondary)
-                        .let { if (brief) it.take(1) else it }
+                    val allItems = testResult(context, profile, TestShowItems.of(adapter.testItemsToShow), color, secondary)
+                    val items = if (brief) {
+                        // 紧凑模式：只取单项数据。新测速产生速度项时直接覆盖旧延迟；无速度时回退到延迟项
+                        val speedItem = allItems.find { it.text.contains("↓") || it.text.contains("↑") }
+                        listOfNotNull(speedItem ?: allItems.firstOrNull())
+                    } else {
+                        allItems
+                    }
+
                     if (items.isNotEmpty()) {
                         result.append(LRO)
                         items.forEachIndexed { index, item ->
@@ -110,15 +115,6 @@ internal class RowContent(
                     } else if (phase == RowPhase.QUEUED) {
                         result.append(context.getString(R.string.profiles_test_queued))
                     }
-                }
-            }
-
-            // 紧凑行模式且存在流量时，将流量拼接至右侧 result 前端；无流量/已清空时自动还原
-            if (brief && hasTraffic) {
-                if (result.isNotEmpty()) {
-                    result.insert(0, "$trafficSummary$GAP")
-                } else {
-                    result.append(trafficSummary)
                 }
             }
 
