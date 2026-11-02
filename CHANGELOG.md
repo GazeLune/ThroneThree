@@ -1,5 +1,9 @@
 #### 2.0.4
 
+* 修改底下状态栏，自动测速，修改结果显示位置。
+
+#### 2.0.4
+
 * Add DNS settings to routing profiles **1**
 * Add enable/disable toggle for route rules
 * Extend the Multiplex preset and allow custom per-profile Multiplex settings **2**
