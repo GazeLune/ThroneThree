@@ -1,18 +1,18 @@
 #### 2.0.4.5
 
-* 紧凑模式右侧文本只显示一个数值，新数字覆盖旧数值
+* 紧凑模式右侧只显示单项测试数据，新测速数据直接覆盖旧数据（修改 `app/src/main/java/io/nekohasekai/sagernet/ui/profiles/ProfileRowHolder.kt`）
+
 #### 2.0.4.3
 
-* 紧凑模式增加流量显示。
+* 紧凑模式增加流量显示与清空重置逻辑（修改 `app/src/main/java/io/nekohasekai/sagernet/ui/profiles/ProfileRowHolder.kt`）
 
 #### 2.0.4.2
 
-* 修改底下状态栏高度。
+* 修改底部状态栏高度（修改 `app/src/main/res/layout/layout_stats.xml`）
 
 #### 2.0.4.1
 
-* 修改底下状态栏，自动测速，修改结果显示位置。
-
+* 修改底部状态栏，自动测速，修改结果显示位置（修改 `app/src/main/java/io/nekohasekai/sagernet/ui/StatsFragment.kt`）
 #### 2.0.4
 
 * Add DNS settings to routing profiles **1**
